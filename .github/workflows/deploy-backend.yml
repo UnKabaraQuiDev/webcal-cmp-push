@@ -1,14 +1,11 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches:
-      - backend
   workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Deploy to server
