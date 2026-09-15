@@ -4,9 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: webcal-cmp-push
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "${CONTAINER_PORT}:8080"
     restart: unless-stopped
