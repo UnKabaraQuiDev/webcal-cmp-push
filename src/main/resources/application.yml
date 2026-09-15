@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: webcal-cmp
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+calendar:
+  url: ""
+nfty:
+  topic: ""
+  domain: ""

@@ -1,0 +1,63 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - backend
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.BACKEND_HOST }}
+          port: ${{ secrets.BACKEND_PORT }}
+          username: ${{ secrets.BACKEND_USER }}
+          key: ${{ secrets.BACKEND_SSH_KEY }}
+
+          proxy_host: ${{ secrets.PROXY_HOST }}
+          proxy_port: ${{ secrets.PROXY_PORT }}
+          proxy_username: ${{ secrets.PROXY_USER }}
+          proxy_key: ${{ secrets.PROXY_SSH_KEY }}
+          
+          script: |
+            set -e
+
+            REPO_DIR="/opt/webcal-cmp-push"
+            REPO_URL="https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/UnKabaraQuiDev/webcal-cmp-push.git"
+            BRANCH="main"
+
+            git config --global --add safe.directory "$REPO_DIR"
+            export GIT_LFS_SKIP_SMUDGE=1
+
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              mkdir -p "$(dirname "$REPO_DIR")"
+
+              git clone \
+                --branch "$BRANCH" \
+                --single-branch \
+                --no-tags \
+                --depth 1 \
+                "$REPO_URL" \
+                "$REPO_DIR"
+            else
+              cd "$REPO_DIR"
+
+              git fetch \
+                --depth 1 \
+                --no-tags \
+                --no-write-fetch-head \
+                origin \
+                "$BRANCH"
+
+              git checkout "$BRANCH"
+              git reset --hard "origin/$BRANCH"
+            fi
+
+            cd "$REPO_DIR"
+
+            docker compose build
