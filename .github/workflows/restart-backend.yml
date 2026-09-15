@@ -32,7 +32,7 @@ jobs:
 
             export CONTAINER_PORT="${{ vars.BACKEND_CONTAINER_PORT }}"
             export CALENDAR_URL="${{ vars.CALENDAR_URL }}"
-            export NTFY_TOPIC="${{ vars.NTFY_TOPIC }}"
+            export NFTY_TOPIC="${{ vars.NFTY_TOPIC }}"
 
             docker compose up -d --remove-orphans
 
