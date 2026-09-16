@@ -33,11 +33,11 @@ jobs:
             export CONTAINER_PORT="${{ vars.BACKEND_CONTAINER_PORT }}"
             export CALENDAR_URL="${{ vars.CALENDAR_URL }}"
             export NTFY_TOPIC="${{ vars.NTFY_TOPIC }}"
-			export EXT_ENABLED="${{ vars.EXT_ENABLED }}"
-			export EXT_HOST="${{ secrets.EXT_HOST }}"
-			export EXT_PASSWORD="${{ secrets.EXT_PASSWORD }}"
-			export EXT_PORT="${{ secrets.EXT_PORT }}"
-			export EXT_USERNAME="${{ secrets.EXT_USERNAME }}"
+            export EXT_ENABLED="${{ vars.EXT_ENABLED }}"
+            export EXT_HOST="${{ secrets.EXT_HOST }}"
+            export EXT_PASSWORD="${{ secrets.EXT_PASSWORD }}"
+            export EXT_PORT="${{ secrets.EXT_PORT }}"
+            export EXT_USERNAME="${{ secrets.EXT_USERNAME }}"
 
             docker compose up -d --remove-orphans
 
