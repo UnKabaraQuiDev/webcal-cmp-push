@@ -32,6 +32,8 @@ public class CheckCalendarService {
 	private final CalendarComparator comparator;
 	private final PushNotificationService pushService;
 
+	private boolean previousFail;
+
 	@Value("${calendar.url}")
 	private String calendarUrl;
 
@@ -44,8 +46,13 @@ public class CheckCalendarService {
 				ics = this.calendarService.downloadCalendar(this.calendarUrl);
 			} catch (final ResourceAccessException e) {
 				CheckCalendarService.log.error("Couldn't download calendar.", e);
+				if (!this.previousFail) {
+					this.pushService.sendFail(e);
+					this.previousFail = true;
+				}
 				return;
 			}
+			this.previousFail = false;
 
 			final List<CalendarEvent> events = this.parser.parse(ics);
 			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
@@ -69,7 +76,13 @@ public class CheckCalendarService {
 			this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
 		} catch (final Exception e) {
 			CheckCalendarService.log.error("Error while checking calendar.", e);
+			if (!this.previousFail) {
+				this.pushService.sendFail(e);
+				this.previousFail = true;
+			}
+			return;
 		}
+		this.previousFail = false;
 	}
 
 	private LocalDate getEffectiveDate() {

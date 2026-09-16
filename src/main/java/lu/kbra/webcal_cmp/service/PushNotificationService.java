@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import lu.kbra.pclib.PCUtils;
 import lu.kbra.webcal_cmp.data.CalendarChanges;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
 import lu.kbra.webcal_cmp.data.CalendarEventChange;
@@ -56,10 +57,10 @@ public class PushNotificationService {
 
 		final Set<CalendarEvent> added = new HashSet<>(changes.added());
 
-		for (EventData e : queue) {
+		for (final EventData e : queue) {
 			switch (e) {
-			case CalendarEventChange change -> message.append("✏️ ").append(this.formatModifiedEvent(change)).append("\n\n");
-			case CalendarEvent event -> {
+			case final CalendarEventChange change -> message.append("✏️ ").append(this.formatModifiedEvent(change)).append("\n\n");
+			case final CalendarEvent event -> {
 				if (added.contains(event)) {
 					message.append("➕ ").append(event.summary()).append("\n");
 
@@ -136,6 +137,19 @@ public class PushNotificationService {
 
 	private String formatDateTime(final Instant instant) {
 		return instant.atZone(ZoneId.of("Europe/Luxembourg")).format(DateTimeFormatter.ofPattern("HH:mm"));
+	}
+
+	public void sendFail(final Exception e) {
+		this.restClient.post()
+				.uri("/" + this.topic)
+				.header("X-Title", "Error occured")
+				.header("X-Priority", "normal")
+				.header("X-Tags", "calendar")
+				.header("X-Markdown", "true")
+				.header("Content-Type", "text/plain; charset=utf-8")
+				.body("Error occured:\n" + PCUtils.toString(e))
+				.retrieve()
+				.toBodilessEntity();
 	}
 
 }
