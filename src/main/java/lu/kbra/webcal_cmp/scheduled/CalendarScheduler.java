@@ -4,7 +4,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import lu.kbra.webcal_cmp.service.CalendarCache;
 import lu.kbra.webcal_cmp.service.CheckCalendarService;
 
 @Service
@@ -12,9 +11,9 @@ import lu.kbra.webcal_cmp.service.CheckCalendarService;
 public class CalendarScheduler {
 
 	private final CheckCalendarService checkCalendarService;
-	private final CalendarCache cache;
+//	private final CalendarCache cache;
 
-	@Scheduled(cron = "0 0/5 7-17 * * *")
+	@Scheduled(cron = "0 0/2 7-17 * * *")
 	public void checkCalendarDuringDay() {
 		this.checkCalendarService.checkCalendar();
 	}

@@ -3,6 +3,7 @@ package lu.kbra.webcal_cmp.service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -10,12 +11,15 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lu.kbra.webcal_cmp.data.CachedCalendar;
 import lu.kbra.webcal_cmp.data.CalendarChanges;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CheckCalendarService {
@@ -33,18 +37,24 @@ public class CheckCalendarService {
 
 	public void checkCalendar() {
 		try {
-			final LocalDate today = LocalDate.now(CheckCalendarService.ZONE);
+			final LocalDate effectiveDate = this.getEffectiveDate();
 
-			final String ics = this.calendarService.downloadCalendar(this.calendarUrl);
+			final String ics;
+			try {
+				ics = this.calendarService.downloadCalendar(this.calendarUrl);
+			} catch (final ResourceAccessException e) {
+				CheckCalendarService.log.error("Couldn't download calendar", e);
+				return;
+			}
 
 			final List<CalendarEvent> events = this.parser.parse(ics);
-			final List<CalendarEvent> todayEvents = this.eventsForToday(events);
+			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
 
 			final CachedCalendar previous = this.cache.get();
 
-			// First run, or first run of a new day.
-			if (previous == null || !previous.date().equals(today)) {
-				this.cache.set(new CachedCalendar(today, this.toMap(todayEvents)));
+			// First run, or first run of a new effective day.
+			if (previous == null || !previous.date().equals(effectiveDate)) {
+				this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
 
 				return;
 			}
@@ -55,16 +65,26 @@ public class CheckCalendarService {
 				this.pushService.sendCalendarChanged(changes);
 			}
 
-			this.cache.set(new CachedCalendar(today, this.toMap(todayEvents)));
+			this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
 		} catch (final Exception e) {
 			e.printStackTrace();
 		}
 	}
 
-	private List<CalendarEvent> eventsForToday(final List<CalendarEvent> events) {
-		final Instant start = LocalDate.now(CheckCalendarService.ZONE).atStartOfDay(CheckCalendarService.ZONE).toInstant();
+	private LocalDate getEffectiveDate() {
+		final ZonedDateTime now = ZonedDateTime.now(CheckCalendarService.ZONE);
 
-		final Instant end = LocalDate.now(CheckCalendarService.ZONE).plusDays(1).atStartOfDay(CheckCalendarService.ZONE).toInstant();
+		if (now.getHour() >= 18) {
+			return now.toLocalDate().plusDays(1);
+		}
+
+		return now.toLocalDate();
+	}
+
+	private List<CalendarEvent> eventsForDate(final List<CalendarEvent> events, final LocalDate date) {
+		final Instant start = date.atStartOfDay(CheckCalendarService.ZONE).toInstant();
+
+		final Instant end = date.plusDays(1).atStartOfDay(CheckCalendarService.ZONE).toInstant();
 
 		return events.stream().filter(event -> event.start().isBefore(end) && (event.end() == null || event.end().isAfter(start))).toList();
 	}
