@@ -43,7 +43,7 @@ public class CheckCalendarService {
 			try {
 				ics = this.calendarService.downloadCalendar(this.calendarUrl);
 			} catch (final ResourceAccessException e) {
-				CheckCalendarService.log.error("Couldn't download calendar", e);
+				CheckCalendarService.log.error("Couldn't download calendar.", e);
 				return;
 			}
 
@@ -62,12 +62,13 @@ public class CheckCalendarService {
 			final CalendarChanges changes = this.comparator.compare(previous.events().values().stream().toList(), todayEvents);
 
 			if (changes.hasChanges()) {
+				CheckCalendarService.log.info("Found changes: {}", changes);
 				this.pushService.sendCalendarChanged(changes);
 			}
 
 			this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
 		} catch (final Exception e) {
-			e.printStackTrace();
+			CheckCalendarService.log.error("Error while checking calendar.", e);
 		}
 	}
 

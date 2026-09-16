@@ -17,6 +17,11 @@ public class CalendarScheduler {
 	public void checkCalendarDuringDay() {
 		this.checkCalendarService.checkCalendar();
 	}
+	
+	@Scheduled(cron = "0 5 18 * * *")
+	public void nextDay() {
+		this.checkCalendarService.checkCalendar();
+	}
 
 	@Scheduled(cron = "0 0 0 * * *")
 	public void midnight() {
