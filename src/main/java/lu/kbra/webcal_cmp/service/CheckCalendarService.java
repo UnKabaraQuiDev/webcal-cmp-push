@@ -52,7 +52,6 @@ public class CheckCalendarService {
 				}
 				return;
 			}
-			this.previousFail = false;
 
 			final List<CalendarEvent> events = this.parser.parse(ics);
 			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
@@ -81,6 +80,9 @@ public class CheckCalendarService {
 				this.previousFail = true;
 			}
 			return;
+		}
+		if (previousFail) {
+			this.pushService.sendOk();
 		}
 		this.previousFail = false;
 	}

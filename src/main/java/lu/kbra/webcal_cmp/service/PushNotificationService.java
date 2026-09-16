@@ -152,4 +152,17 @@ public class PushNotificationService {
 				.toBodilessEntity();
 	}
 
+	public void sendOk() {
+		this.restClient.post()
+				.uri("/" + this.topic)
+				.header("X-Title", "Error occured")
+				.header("X-Priority", "low")
+				.header("X-Tags", "calendar")
+				.header("X-Markdown", "true")
+				.header("Content-Type", "text/plain; charset=utf-8")
+				.body("Back online.")
+				.retrieve()
+				.toBodilessEntity();
+	}
+
 }
