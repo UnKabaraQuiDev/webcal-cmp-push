@@ -13,7 +13,7 @@ public class CalendarScheduler {
 	private final CheckCalendarService checkCalendarService;
 //	private final CalendarCache cache;
 
-	@Scheduled(cron = "0 0/2 7-17 * * *")
+	@Scheduled(cron = "0 0/5 7-17 * * *")
 	public void checkCalendarDuringDay() {
 		this.checkCalendarService.checkCalendar();
 	}
