@@ -1,4 +1,4 @@
-package lu.kbra.webcal_cmp;
+package lu.kbra.webcal_cmp.endpoint;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,7 +14,7 @@ public class WebhookEndpoint {
 
 	@PostMapping("/refresh")
 	public void refreshCalendar() {
-		this.checkCalendarService.checkCalendar();
+		this.checkCalendarService.checkCalendar(false);
 	}
 
 }

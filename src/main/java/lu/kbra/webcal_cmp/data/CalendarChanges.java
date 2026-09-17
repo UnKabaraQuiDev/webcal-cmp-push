@@ -1,11 +1,15 @@
 package lu.kbra.webcal_cmp.data;
 
-import java.util.List;
+import java.util.Set;
 
-public record CalendarChanges(List<CalendarEvent> added, List<CalendarEvent> removed, List<CalendarEventChange> modified) {
+public record CalendarChanges(
+		Set<CalendarEvent> added,
+		Set<CalendarEvent> removed,
+		Set<CalendarEventChange> modified,
+		Set<CalendarEventWarning> warning) {
 
 	public boolean hasChanges() {
-		return !added.isEmpty() || !removed.isEmpty() || !modified.isEmpty();
+		return !added.isEmpty() || !removed.isEmpty() || !modified.isEmpty() || !warning.isEmpty();
 	}
 
 }

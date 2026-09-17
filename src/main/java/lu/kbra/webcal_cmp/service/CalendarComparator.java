@@ -1,9 +1,10 @@
 package lu.kbra.webcal_cmp.service;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -21,9 +22,9 @@ public class CalendarComparator {
 
 		final Map<String, CalendarEvent> newMap = newEvents.stream().collect(Collectors.toMap(CalendarEvent::uid, Function.identity()));
 
-		final List<CalendarEvent> added = new ArrayList<>();
-		final List<CalendarEvent> removed = new ArrayList<>();
-		final List<CalendarEventChange> modified = new ArrayList<>();
+		final Set<CalendarEvent> added = new HashSet<>();
+		final Set<CalendarEvent> removed = new HashSet<>();
+		final Set<CalendarEventChange> modified = new HashSet<>();
 
 		for (final CalendarEvent event : newEvents) {
 			final CalendarEvent old = oldMap.get(event.uid());
@@ -41,7 +42,7 @@ public class CalendarComparator {
 			}
 		}
 
-		return new CalendarChanges(added, removed, modified);
+		return new CalendarChanges(added, removed, modified, new HashSet<>());
 	}
 
 	private boolean hasChanged(final CalendarEvent old, final CalendarEvent current) {

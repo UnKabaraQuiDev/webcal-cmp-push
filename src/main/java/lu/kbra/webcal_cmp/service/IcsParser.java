@@ -9,8 +9,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import lu.kbra.webcal_cmp.data.CalendarEvent;
@@ -26,6 +30,9 @@ import net.fortuna.ical4j.model.property.Uid;
 public class IcsParser {
 
 	private static final ZoneId ZONE = ZoneId.of("Europe/Luxembourg");
+
+	@Value("${calendar.class}")
+	private String className;
 
 	private Instant toInstant(final Temporal temporal) {
 		return switch (temporal) {
@@ -64,7 +71,21 @@ public class IcsParser {
 
 			final String uid = event.getUid().map(Uid::getValue).orElseThrow();
 
-			final String summary = event.getSummary().map(Summary::getValue).orElse("");
+			String summary = event.getSummary().map(Summary::getValue).orElse("");
+
+			final String[] split = summary.split(";\s+");
+			final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
+				final String[] parts = s.split("/");
+				return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
+			}).orElse(-1);
+			if (index >= 0 && index < split.length) {
+				summary = split[index];
+				summary += " [";
+				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", ")); // classes
+				summary += "] (";
+				summary += split[split.length - 1].trim().toUpperCase(); // type
+				summary += ")";
+			}
 
 			final String location = event.getLocation().map(Location::getValue).orElse("");
 

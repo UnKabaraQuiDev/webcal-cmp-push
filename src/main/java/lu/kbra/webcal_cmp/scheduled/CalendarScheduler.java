@@ -11,26 +11,26 @@ import lu.kbra.webcal_cmp.service.CheckCalendarService;
 public class CalendarScheduler {
 
 	private final CheckCalendarService checkCalendarService;
-//	private final CalendarCache cache;
 
 	@Scheduled(cron = "0 0/5 7-17 * * *")
 	public void checkCalendarDuringDay() {
-		this.checkCalendarService.checkCalendar();
+		this.checkCalendarService.checkCalendar(false);
 	}
 	
 	@Scheduled(cron = "0 5 18 * * *")
 	public void nextDay() {
-		this.checkCalendarService.checkCalendar();
+		this.checkCalendarService.checkCalendar(true);
 	}
 
-	@Scheduled(cron = "0 0 0 * * *")
+	@Scheduled(cron = "0 1 0 * * *")
 	public void midnight() {
-		this.checkCalendarService.checkCalendar();
+		this.checkCalendarService.checkCalendar(false);
 	}
 
 //	@EventListener(ApplicationReadyEvent.class)
 //	public void onApplicationReady() {
-//		this.checkCalendarService.checkCalendar();
+//		this.checkCalendarService.checkCalendar(true);
+//		this.checkCalendarService.checkCalendar(true);
 //	}
 
 }

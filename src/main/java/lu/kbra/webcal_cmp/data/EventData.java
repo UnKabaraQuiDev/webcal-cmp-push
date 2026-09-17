@@ -2,8 +2,8 @@ package lu.kbra.webcal_cmp.data;
 
 import java.time.Instant;
 
-sealed public interface EventData permits CalendarEventChange, CalendarEvent {
+sealed public interface EventData permits CalendarEventChange, CalendarEvent, CalendarEventWarning {
 
 	Instant getNewStartTime();
-	
+
 }

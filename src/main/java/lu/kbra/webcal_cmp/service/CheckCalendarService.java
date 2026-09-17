@@ -18,13 +18,15 @@ import lombok.extern.slf4j.Slf4j;
 import lu.kbra.webcal_cmp.data.CachedCalendar;
 import lu.kbra.webcal_cmp.data.CalendarChanges;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
+import lu.kbra.webcal_cmp.data.CalendarEventWarning;
+import lu.kbra.webcal_cmp.data.CalendarEventWarning.WarningType;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CheckCalendarService {
 
-	private static final ZoneId ZONE = ZoneId.of("Europe/Luxembourg");
+	private final ZoneId zone;
 
 	private final FetchService calendarService;
 	private final IcsParser parser;
@@ -32,14 +34,16 @@ public class CheckCalendarService {
 	private final CalendarComparator comparator;
 	private final PushNotificationService pushService;
 
-	private boolean previousFail;
+	private boolean previousFail = false;
 
 	@Value("${calendar.url}")
 	private String calendarUrl;
 
-	public void checkCalendar() {
+	public void checkCalendar(final boolean notifySpecialEvents) {
 		try {
-			final LocalDate effectiveDate = this.getEffectiveDate();
+			final boolean isWarningNextDay = this.isConsideringNextDay();
+			final LocalDate effectiveDate = (isWarningNextDay ? ZonedDateTime.now(this.zone).plusDays(1) : ZonedDateTime.now(this.zone))
+					.toLocalDate();
 
 			final String ics;
 			try {
@@ -67,6 +71,42 @@ public class CheckCalendarService {
 
 			final CalendarChanges changes = this.comparator.compare(previous.events().values().stream().toList(), todayEvents);
 
+			// if got any modofied:
+			// remove modified events that are cancelled/tps/kept
+			// add them to warnings
+			if (!changes.modified().isEmpty()) {
+				changes.modified().removeIf(e -> {
+					if (e.newEvent().summary().toLowerCase().contains("suspendus")
+							&& !e.oldEvent().summary().toLowerCase().contains("suspendus")) {
+						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.CANCELLED));
+						return true;
+					}
+					if (e.oldEvent().summary().toLowerCase().contains("suspendus")
+							&& !e.newEvent().summary().toLowerCase().contains("suspendus")) {
+						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.KEPT_ON));
+						return true;
+					}
+					if (e.newEvent().summary().toLowerCase().contains("tp") && !e.oldEvent().summary().toLowerCase().contains("tp")) {
+						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.TP));
+						return true;
+					}
+					return false;
+				});
+			}
+			// if the next day:
+			// remove modified events that are cancelled/tps
+			// add cancelled/tps to warnings
+			if (isWarningNextDay) {
+				todayEvents.stream()
+						.filter(e -> e.summary().toLowerCase().contains("suspendus"))
+						.map(c -> new CalendarEventWarning(c, WarningType.CANCELLED))
+						.forEach(changes.warning()::add);
+				todayEvents.stream()
+						.filter(e -> e.summary().toLowerCase().contains("tp"))
+						.map(c -> new CalendarEventWarning(c, WarningType.TP))
+						.forEach(changes.warning()::add);
+			}
+
 			if (changes.hasChanges()) {
 				CheckCalendarService.log.info("Found changes: {}", changes);
 				this.pushService.sendCalendarChanged(changes);
@@ -81,26 +121,22 @@ public class CheckCalendarService {
 			}
 			return;
 		}
-		if (previousFail) {
+		if (this.previousFail) {
 			this.pushService.sendOk();
 		}
 		this.previousFail = false;
 	}
 
-	private LocalDate getEffectiveDate() {
-		final ZonedDateTime now = ZonedDateTime.now(CheckCalendarService.ZONE);
+	private boolean isConsideringNextDay() {
+		final ZonedDateTime now = ZonedDateTime.now(this.zone);
 
-		if (now.getHour() >= 18) {
-			return now.toLocalDate().plusDays(1);
-		}
-
-		return now.toLocalDate();
+		return now.getHour() >= 18;
 	}
 
 	private List<CalendarEvent> eventsForDate(final List<CalendarEvent> events, final LocalDate date) {
-		final Instant start = date.atStartOfDay(CheckCalendarService.ZONE).toInstant();
+		final Instant start = date.atStartOfDay(this.zone).toInstant();
 
-		final Instant end = date.plusDays(1).atStartOfDay(CheckCalendarService.ZONE).toInstant();
+		final Instant end = date.plusDays(1).atStartOfDay(this.zone).toInstant();
 
 		return events.stream().filter(event -> event.start().isBefore(end) && (event.end() == null || event.end().isAfter(start))).toList();
 	}

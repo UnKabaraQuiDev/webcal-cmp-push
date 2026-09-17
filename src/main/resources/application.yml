@@ -8,6 +8,8 @@ server:
 
 calendar:
   url: ""
+  class: ""
+  zone: "Europe/Luxembourg"
   proxy:
     enabled: true
     host: ""
