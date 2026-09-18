@@ -1,5 +1,6 @@
 package lu.kbra.webcal_cmp.service;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -19,6 +20,8 @@ import lu.kbra.webcal_cmp.data.CalendarChanges;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
 import lu.kbra.webcal_cmp.data.CalendarEventWarning;
 import lu.kbra.webcal_cmp.data.CalendarEventWarning.WarningType;
+import net.fortuna.ical4j.model.Calendar;
+import net.fortuna.ical4j.validate.ValidationException;
 
 @Slf4j
 @Service
@@ -27,7 +30,6 @@ public class CheckCalendarService {
 
 	private final ZoneId zone;
 
-	private final FetchService calendarService;
 	private final IcsParser parser;
 	private final CalendarCache cache;
 	private final CalendarComparator comparator;
@@ -35,82 +37,82 @@ public class CheckCalendarService {
 
 	private boolean previousFail = false;
 
+	private void checkChanges(final Calendar cal, final boolean notifySpecialEvents) {
+		final boolean isConsideringNextDay = this.isConsideringNextDay();
+		final LocalDate effectiveDate = (isConsideringNextDay ? ZonedDateTime.now(this.zone).plusDays(1) : ZonedDateTime.now(this.zone))
+				.toLocalDate();
+
+		final List<CalendarEvent> events = this.parser.extractEvents(cal);
+		final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
+
+		final CachedCalendar previous = this.cache.get();
+
+		// First run, or first run of a new effective day.
+		if (previous == null || !previous.date().equals(effectiveDate)) {
+			this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
+
+			return;
+		}
+
+		final CalendarChanges changes = this.comparator.compare(previous.events().values().stream().toList(), todayEvents);
+
+		// if got any modofied:
+		// remove modified events that are cancelled/tps/kept
+		// add them to warnings
+		if (!changes.modified().isEmpty()) {
+			changes.modified().removeIf(e -> {
+				if (e.newEvent().summary().toLowerCase().contains("suspendus")
+						&& !e.oldEvent().summary().toLowerCase().contains("suspendus")) {
+					changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.CANCELLED));
+					return true;
+				}
+				if (e.oldEvent().summary().toLowerCase().contains("suspendus")
+						&& !e.newEvent().summary().toLowerCase().contains("suspendus")) {
+					changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.KEPT_ON));
+					return true;
+				}
+				if (e.newEvent().summary().toLowerCase().contains("tp") && !e.oldEvent().summary().toLowerCase().contains("tp")) {
+					changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.TP));
+					return true;
+				}
+				return false;
+			});
+		}
+		// if the next day:
+		// remove modified events that are cancelled/tps
+		// add cancelled/tps to warnings
+		if (isConsideringNextDay && notifySpecialEvents) {
+			todayEvents.stream()
+					.filter(e -> e.summary().toLowerCase().contains("suspendus"))
+					.map(c -> new CalendarEventWarning(c, WarningType.CANCELLED))
+					.forEach(changes.warning()::add);
+			todayEvents.stream()
+					.filter(e -> e.summary().toLowerCase().contains("tp"))
+					.map(c -> new CalendarEventWarning(c, WarningType.TP))
+					.forEach(changes.warning()::add);
+		}
+
+		if (changes.hasChanges()) {
+			CheckCalendarService.log.info("Found changes: {}", changes);
+			this.pushService.sendCalendarChanged(changes);
+		}
+
+		this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
+	}
+
 	public void checkCalendar(final boolean notifySpecialEvents) {
 		try {
-			final boolean isWarningNextDay = this.isConsideringNextDay();
-			final LocalDate effectiveDate = (isWarningNextDay ? ZonedDateTime.now(this.zone).plusDays(1) : ZonedDateTime.now(this.zone))
-					.toLocalDate();
+			final Calendar cal = this.parser.getCalendar();
 
-			final String ics;
-			try {
-				ics = this.calendarService.downloadCalendar();
-			} catch (final ResourceAccessException e) {
-				CheckCalendarService.log.error("Couldn't download calendar.", e);
-				if (!this.previousFail) {
-					this.pushService.sendFail(e);
-					this.previousFail = true;
-				}
-				return;
+			this.storeTransformed(cal);
+			this.checkChanges(cal, notifySpecialEvents);
+		} catch (final ResourceAccessException e) {
+			CheckCalendarService.log.error("Couldn't download calendar.", e);
+			if (!this.previousFail) {
+				this.pushService.sendFail(e);
+				this.previousFail = true;
 			}
-
-			final List<CalendarEvent> events = this.parser.parse(ics);
-			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
-
-			this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(ics)));
-
-			final CachedCalendar previous = this.cache.get();
-
-			// First run, or first run of a new effective day.
-			if (previous == null || !previous.date().equals(effectiveDate)) {
-				this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
-
-				return;
-			}
-
-			final CalendarChanges changes = this.comparator.compare(previous.events().values().stream().toList(), todayEvents);
-
-			// if got any modofied:
-			// remove modified events that are cancelled/tps/kept
-			// add them to warnings
-			if (!changes.modified().isEmpty()) {
-				changes.modified().removeIf(e -> {
-					if (e.newEvent().summary().toLowerCase().contains("suspendus")
-							&& !e.oldEvent().summary().toLowerCase().contains("suspendus")) {
-						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.CANCELLED));
-						return true;
-					}
-					if (e.oldEvent().summary().toLowerCase().contains("suspendus")
-							&& !e.newEvent().summary().toLowerCase().contains("suspendus")) {
-						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.KEPT_ON));
-						return true;
-					}
-					if (e.newEvent().summary().toLowerCase().contains("tp") && !e.oldEvent().summary().toLowerCase().contains("tp")) {
-						changes.warning().add(new CalendarEventWarning(e.newEvent(), WarningType.TP));
-						return true;
-					}
-					return false;
-				});
-			}
-			// if the next day:
-			// remove modified events that are cancelled/tps
-			// add cancelled/tps to warnings
-			if (isWarningNextDay) {
-				todayEvents.stream()
-						.filter(e -> e.summary().toLowerCase().contains("suspendus"))
-						.map(c -> new CalendarEventWarning(c, WarningType.CANCELLED))
-						.forEach(changes.warning()::add);
-				todayEvents.stream()
-						.filter(e -> e.summary().toLowerCase().contains("tp"))
-						.map(c -> new CalendarEventWarning(c, WarningType.TP))
-						.forEach(changes.warning()::add);
-			}
-
-			if (changes.hasChanges()) {
-				CheckCalendarService.log.info("Found changes: {}", changes);
-				this.pushService.sendCalendarChanged(changes);
-			}
-
-			this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
+			return;
 		} catch (final Exception e) {
 			CheckCalendarService.log.error("Error while checking calendar.", e);
 			if (!this.previousFail) {
@@ -123,6 +125,10 @@ public class CheckCalendarService {
 			this.pushService.sendOk();
 		}
 		this.previousFail = false;
+	}
+
+	public void storeTransformed(final Calendar cal) throws ValidationException, IOException, Exception {
+		this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(cal)));
 	}
 
 	private boolean isConsideringNextDay() {

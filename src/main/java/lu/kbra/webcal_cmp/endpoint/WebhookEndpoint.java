@@ -9,15 +9,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.ResourceAccessException;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lu.kbra.webcal_cmp.service.CalendarCache;
 import lu.kbra.webcal_cmp.service.CheckCalendarService;
-import lu.kbra.webcal_cmp.service.FetchService;
 import lu.kbra.webcal_cmp.service.IcsParser;
+import net.fortuna.ical4j.model.Calendar;
 
 @Slf4j
 @RestController
@@ -27,7 +26,6 @@ public class WebhookEndpoint {
 	private final CheckCalendarService checkCalendarService;
 	private final CalendarCache calendarCache;
 	private final IcsParser parser;
-	private final FetchService calendarService;
 
 	@Value("${calendar.key}")
 	private String key;
@@ -52,15 +50,8 @@ public class WebhookEndpoint {
 			return ResponseEntity.badRequest().build();
 		}
 		if (this.calendarCache.getTransformed() == null) {
-			final String ics;
-			try {
-				ics = this.calendarService.downloadCalendar();
-			} catch (final ResourceAccessException e) {
-				WebhookEndpoint.log.error("Couldn't download calendar.", e);
-				return ResponseEntity.internalServerError().build();
-			}
-
-			this.calendarCache.setTransformed(this.parser.calToString(this.parser.fixCal(ics)));
+			final Calendar cal = this.parser.getCalendar();
+			checkCalendarService.storeTransformed(cal);
 		}
 
 		return ResponseEntity.ok().contentType(MediaType.parseMediaType("text/calendar")).body(this.calendarCache.getTransformed());

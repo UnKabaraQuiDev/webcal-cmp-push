@@ -20,9 +20,11 @@ import java.util.stream.IntStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import lombok.RequiredArgsConstructor;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.data.CalendarOutputter;
+import net.fortuna.ical4j.data.ParserException;
 import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.component.VEvent;
@@ -32,9 +34,12 @@ import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.validate.ValidationException;
 
 @Service
+@RequiredArgsConstructor
 public class IcsParser {
 
 	private static final ZoneId ZONE = ZoneId.of("Europe/Luxembourg");
+
+	private final FetchService fetchService;
 
 	@Value("${calendar.class}")
 	private String className;
@@ -50,6 +55,11 @@ public class IcsParser {
 		};
 	}
 
+	public Calendar getCalendar() throws IOException, ParserException {
+		final String ics = this.fetchService.downloadCalendar();
+		return this.parse(ics);
+	}
+
 	public List<CalendarEvent> eventsForToday(final List<CalendarEvent> events) {
 		final LocalDate today = LocalDate.now(IcsParser.ZONE);
 
@@ -60,7 +70,7 @@ public class IcsParser {
 		return events.stream().filter(event -> event.start().isBefore(end) && (event.end() == null || event.end().isAfter(start))).toList();
 	}
 
-	public List<CalendarEvent> parse(final String ics) throws Exception {
+	public Calendar parse(final String ics) throws IOException, ParserException {
 		final CalendarBuilder builder = new CalendarBuilder();
 
 		Calendar calendar;
@@ -69,6 +79,10 @@ public class IcsParser {
 			calendar = builder.build(reader);
 		}
 
+		return calendar;
+	}
+
+	public List<CalendarEvent> extractEvents(final Calendar calendar) {
 		final List<CalendarEvent> events = new ArrayList<>();
 
 		for (final Component component : calendar.getComponents(Component.VEVENT)) {
@@ -104,15 +118,7 @@ public class IcsParser {
 		return events;
 	}
 
-	public Calendar fixCal(final String ics) throws Exception {
-		final CalendarBuilder builder = new CalendarBuilder();
-
-		Calendar calendar;
-
-		try (StringReader reader = new StringReader(ics)) {
-			calendar = builder.build(reader);
-		}
-
+	public Calendar fixCal(final Calendar calendar) throws Exception {
 		for (final Component component : calendar.getComponents(Component.VEVENT)) {
 			final VEvent event = (VEvent) component;
 
@@ -135,11 +141,13 @@ public class IcsParser {
 			event.add(new Summary(summary));
 		}
 
+		calendar.validate(true);
+
 		return calendar;
 	}
 
 	public String calToString(final Calendar cal) throws ValidationException, IOException {
-		CalendarOutputter outputter = new CalendarOutputter();
+		final CalendarOutputter outputter = new CalendarOutputter();
 		final StringWriter writer = new StringWriter();
 		final PrintWriter pw = new PrintWriter(writer);
 		outputter.output(cal, pw);
