@@ -32,7 +32,10 @@ public class WebhookEndpoint {
 	private String key;
 
 	@PostMapping("/refresh")
-	public void refreshCalendar() {
+	public void refreshCalendar(@RequestParam final String key) {
+		if (!Objects.equals(this.key, key)) {
+			return;
+		}
 		this.checkCalendarService.checkCalendar(false);
 	}
 
