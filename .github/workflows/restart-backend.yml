@@ -38,6 +38,7 @@ jobs:
             export EXT_PASSWORD="${{ secrets.EXT_PASSWORD }}"
             export EXT_PORT="${{ secrets.EXT_PORT }}"
             export EXT_USERNAME="${{ secrets.EXT_USERNAME }}"
+            export CALENDAR_CLASS="${{ vars.CLASS_NAME }}"
 
             docker compose up -d --remove-orphans
 
