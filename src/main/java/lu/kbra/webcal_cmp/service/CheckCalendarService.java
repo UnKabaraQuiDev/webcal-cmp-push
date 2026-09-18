@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 
@@ -36,9 +35,6 @@ public class CheckCalendarService {
 
 	private boolean previousFail = false;
 
-	@Value("${calendar.url}")
-	private String calendarUrl;
-
 	public void checkCalendar(final boolean notifySpecialEvents) {
 		try {
 			final boolean isWarningNextDay = this.isConsideringNextDay();
@@ -47,7 +43,7 @@ public class CheckCalendarService {
 
 			final String ics;
 			try {
-				ics = this.calendarService.downloadCalendar(this.calendarUrl);
+				ics = this.calendarService.downloadCalendar();
 			} catch (final ResourceAccessException e) {
 				CheckCalendarService.log.error("Couldn't download calendar.", e);
 				if (!this.previousFail) {
@@ -59,6 +55,8 @@ public class CheckCalendarService {
 
 			final List<CalendarEvent> events = this.parser.parse(ics);
 			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
+
+			this.cache.setTransformed(this.parser.calToString(this.parser.toCal(events)));
 
 			final CachedCalendar previous = this.cache.get();
 

@@ -10,6 +10,7 @@ calendar:
   url: ""
   class: ""
   zone: "Europe/Luxembourg"
+  key: ""
   proxy:
     enabled: true
     host: ""

@@ -1,6 +1,10 @@
 package lu.kbra.webcal_cmp.service;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.StringReader;
+import java.io.StringWriter;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,12 +23,14 @@ import org.springframework.stereotype.Service;
 
 import lu.kbra.webcal_cmp.data.CalendarEvent;
 import net.fortuna.ical4j.data.CalendarBuilder;
+import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Summary;
 import net.fortuna.ical4j.model.property.Uid;
+import net.fortuna.ical4j.validate.ValidationException;
 
 @Service
 public class IcsParser {
@@ -97,6 +103,28 @@ public class IcsParser {
 		}
 
 		return events;
+	}
+
+	public Calendar toCal(final List<CalendarEvent> events) throws Exception {
+		final Calendar calendar = new Calendar();
+
+		for (final CalendarEvent event : events) {
+
+			final VEvent vevent = new VEvent(event.start(), Duration.between(event.start(), event.end()), event.summary());
+			vevent.add(new Uid(event.uid()));
+
+			calendar.add(vevent);
+		}
+
+		return calendar;
+	}
+
+	public String calToString(final Calendar cal) throws ValidationException, IOException {
+		CalendarOutputter outputter = new CalendarOutputter();
+		final StringWriter writer = new StringWriter();
+		final PrintWriter pw = new PrintWriter(writer);
+		outputter.output(cal, pw);
+		return writer.toString();
 	}
 
 }
