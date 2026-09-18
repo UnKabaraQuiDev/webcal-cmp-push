@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.ResourceAccessException;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lu.kbra.webcal_cmp.service.CalendarCache;
@@ -30,6 +31,11 @@ public class WebhookEndpoint {
 
 	@Value("${calendar.key}")
 	private String key;
+
+	@PostConstruct
+	public void init() {
+		log.info("Key: {}", key);
+	}
 
 	@PostMapping("/refresh")
 	public ResponseEntity<?> refreshCalendar(@RequestParam final String key) {
