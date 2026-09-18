@@ -21,7 +21,7 @@ import net.fortuna.ical4j.model.Calendar;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class WebhookEndpoint {
+public class Endpoints {
 
 	private final CheckCalendarService checkCalendarService;
 	private final CalendarCache calendarCache;
@@ -49,10 +49,9 @@ public class WebhookEndpoint {
 		if (!Objects.equals(this.key, key)) {
 			return ResponseEntity.badRequest().build();
 		}
-		if (this.calendarCache.getTransformed() == null) {
-			final Calendar cal = this.parser.getCalendar();
-			checkCalendarService.storeTransformed(cal);
-		}
+
+		final Calendar cal = this.parser.getCalendar();
+		checkCalendarService.storeTransformed(cal);
 
 		return ResponseEntity.ok().contentType(MediaType.parseMediaType("text/calendar")).body(this.calendarCache.getTransformed());
 	}
