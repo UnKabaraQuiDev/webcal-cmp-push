@@ -3,6 +3,8 @@ package lu.kbra.webcal_cmp.endpoint;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,17 +32,18 @@ public class WebhookEndpoint {
 	private String key;
 
 	@PostMapping("/refresh")
-	public void refreshCalendar(@RequestParam final String key) {
+	public ResponseEntity<?> refreshCalendar(@RequestParam final String key) {
 		if (!Objects.equals(this.key, key)) {
-			return;
+			return ResponseEntity.badRequest().build();
 		}
 		this.checkCalendarService.checkCalendar(false);
+		return ResponseEntity.ok().build();
 	}
 
-	@GetMapping(value = "/webcal", produces = "text/calendar")
-	public String getCalendar(@RequestParam final String key) throws Exception {
+	@GetMapping("/webcal")
+	public ResponseEntity<String> getCalendar(@RequestParam final String key) throws Exception {
 		if (!Objects.equals(this.key, key)) {
-			return null;
+			return ResponseEntity.badRequest().build();
 		}
 		if (this.calendarCache.getTransformed() == null) {
 			final String ics;
@@ -48,12 +51,13 @@ public class WebhookEndpoint {
 				ics = this.calendarService.downloadCalendar();
 			} catch (final ResourceAccessException e) {
 				WebhookEndpoint.log.error("Couldn't download calendar.", e);
-				return null;
+				return ResponseEntity.internalServerError().build();
 			}
 
 			this.calendarCache.setTransformed(this.parser.calToString(this.parser.fixCal(ics)));
 		}
-		return this.calendarCache.getTransformed();
+
+		return ResponseEntity.ok().contentType(MediaType.parseMediaType("text/calendar")).body(this.calendarCache.getTransformed());
 	}
 
 }
