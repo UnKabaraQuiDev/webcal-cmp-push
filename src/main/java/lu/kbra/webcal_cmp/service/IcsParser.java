@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -105,15 +104,35 @@ public class IcsParser {
 		return events;
 	}
 
-	public Calendar toCal(final List<CalendarEvent> events) throws Exception {
-		final Calendar calendar = new Calendar();
+	public Calendar fixCal(final String ics) throws Exception {
+		final CalendarBuilder builder = new CalendarBuilder();
 
-		for (final CalendarEvent event : events) {
+		Calendar calendar;
 
-			final VEvent vevent = new VEvent(event.start(), Duration.between(event.start(), event.end()), event.summary());
-			vevent.add(new Uid(event.uid()));
+		try (StringReader reader = new StringReader(ics)) {
+			calendar = builder.build(reader);
+		}
 
-			calendar.add(vevent);
+		for (final Component component : calendar.getComponents(Component.VEVENT)) {
+			final VEvent event = (VEvent) component;
+
+			String summary = event.getSummary().map(Summary::getValue).orElse("");
+
+			final String[] split = summary.split(";\s+");
+			final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
+				final String[] parts = s.split("/");
+				return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
+			}).orElse(-1);
+			if (index >= 0 && index < split.length) {
+				summary = split[index];
+				summary += " [";
+				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", ")); // classes
+				summary += "] (";
+				summary += split[split.length - 1].trim().toUpperCase(); // type
+				summary += ")";
+			}
+
+			event.add(new Summary(summary));
 		}
 
 		return calendar;

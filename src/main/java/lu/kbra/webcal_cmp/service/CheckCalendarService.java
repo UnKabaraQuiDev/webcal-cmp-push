@@ -56,7 +56,7 @@ public class CheckCalendarService {
 			final List<CalendarEvent> events = this.parser.parse(ics);
 			final List<CalendarEvent> todayEvents = this.eventsForDate(events, effectiveDate);
 
-			this.cache.setTransformed(this.parser.calToString(this.parser.toCal(events)));
+			this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(ics)));
 
 			final CachedCalendar previous = this.cache.get();
 

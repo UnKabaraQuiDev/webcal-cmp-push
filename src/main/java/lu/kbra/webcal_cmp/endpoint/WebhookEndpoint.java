@@ -1,6 +1,5 @@
 package lu.kbra.webcal_cmp.endpoint;
 
-import java.util.List;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +11,6 @@ import org.springframework.web.client.ResourceAccessException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import lu.kbra.webcal_cmp.data.CalendarEvent;
 import lu.kbra.webcal_cmp.service.CalendarCache;
 import lu.kbra.webcal_cmp.service.CheckCalendarService;
 import lu.kbra.webcal_cmp.service.FetchService;
@@ -53,9 +51,7 @@ public class WebhookEndpoint {
 				return null;
 			}
 
-			final List<CalendarEvent> events = this.parser.parse(ics);
-
-			this.calendarCache.setTransformed(this.parser.calToString(this.parser.toCal(events)));
+			this.calendarCache.setTransformed(this.parser.calToString(this.parser.fixCal(ics)));
 		}
 		return this.calendarCache.getTransformed();
 	}
