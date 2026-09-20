@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,7 @@ public class IcsParser {
 		};
 	}
 
+	@Cacheable("parsedCal")
 	public Calendar getCalendar() throws IOException, ParserException {
 		final String ics = this.fetchService.downloadCalendar();
 		return this.parse(ics);

@@ -20,3 +20,7 @@ calendar:
 
 nfty:
   topic: ""
+
+logging:
+  level:
+    net.fortuna.ical4j.data.CalendarOutputter: ERROR

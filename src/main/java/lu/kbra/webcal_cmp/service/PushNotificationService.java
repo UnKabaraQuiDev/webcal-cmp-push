@@ -169,10 +169,10 @@ public class PushNotificationService {
 		this.restClient.post()
 				.uri("/" + this.topic)
 				.header("X-Title", "Error occured")
-				.header("X-Priority", "normal")
+				.header("X-Priority", "low")
 				.header("X-Tags", "calendar")
 				.header("X-Markdown", "true")
-				.header("Content-Type", "text/plain; charset=utf-8")
+				.header("Content-Type", "text/plain; charntset=utf-8")
 				.body("Error occured:\n" + PCUtils.toString(e))
 				.retrieve()
 				.toBodilessEntity();

@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 
@@ -78,6 +79,7 @@ public class CheckCalendarService {
 				return false;
 			});
 		}
+
 		// if the next day:
 		// remove modified events that are cancelled/tps
 		// add cancelled/tps to warnings
@@ -90,6 +92,7 @@ public class CheckCalendarService {
 					.filter(e -> e.summary().toLowerCase().contains("tp"))
 					.map(c -> new CalendarEventWarning(c, WarningType.TP))
 					.forEach(changes.warning()::add);
+			log.info("Found cancelled/tps: {}", changes.warning());
 		}
 
 		if (changes.hasChanges()) {
@@ -100,12 +103,14 @@ public class CheckCalendarService {
 		this.cache.set(new CachedCalendar(effectiveDate, this.toMap(todayEvents)));
 	}
 
-	public void checkCalendar(final boolean notifySpecialEvents) {
+	public void checkCalendar(final boolean checkChanges, final boolean notifySpecialEvents) {
 		try {
 			final Calendar cal = this.parser.getCalendar();
 
 			this.storeTransformed(cal);
-			this.checkChanges(cal, notifySpecialEvents);
+			if (checkChanges) {
+				this.checkChanges(cal, notifySpecialEvents);
+			}
 		} catch (final ResourceAccessException e) {
 			CheckCalendarService.log.error("Couldn't download calendar.", e);
 			if (!this.previousFail) {
@@ -127,8 +132,10 @@ public class CheckCalendarService {
 		this.previousFail = false;
 	}
 
-	public void storeTransformed(final Calendar cal) throws ValidationException, IOException, Exception {
+	@Cacheable("transformed")
+	public String storeTransformed(final Calendar cal) throws ValidationException, IOException, Exception {
 		this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(cal)));
+		return cache.getTransformed();
 	}
 
 	private boolean isConsideringNextDay() {

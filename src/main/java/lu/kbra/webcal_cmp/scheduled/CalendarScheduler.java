@@ -14,23 +14,23 @@ public class CalendarScheduler {
 
 	@Scheduled(cron = "0 0/5 7-17 * * *")
 	public void checkCalendarDuringDay() {
-		this.checkCalendarService.checkCalendar(false);
-	}
-	
-	@Scheduled(cron = "0 5 18 * * *")
-	public void nextDay() {
-		this.checkCalendarService.checkCalendar(true);
+		this.checkCalendarService.checkCalendar(true, false);
 	}
 
-	@Scheduled(cron = "0 1 0 * * *")
+	@Scheduled(cron = "0 5 18 * * *")
+	public void nextDay() {
+		this.checkCalendarService.checkCalendar(true, true);
+	}
+
+	@Scheduled(cron = "0 5 0 * * *")
 	public void midnight() {
-		this.checkCalendarService.checkCalendar(false);
+		this.checkCalendarService.checkCalendar(true, false);
 	}
 
 //	@EventListener(ApplicationReadyEvent.class)
 //	public void onApplicationReady() {
-//		this.checkCalendarService.checkCalendar(true);
-//		this.checkCalendarService.checkCalendar(true);
+//		this.checkCalendarService.checkCalendar(true, false);
+//		this.checkCalendarService.checkCalendar(true, true);
 //	}
 
 }

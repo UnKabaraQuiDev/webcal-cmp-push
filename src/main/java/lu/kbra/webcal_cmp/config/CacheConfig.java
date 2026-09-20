@@ -13,11 +13,9 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 public class CacheConfig {
 
 	@Bean
-	public CacheManager cacheManager() {
-		final CaffeineCacheManager manager = new CaffeineCacheManager("calendars");
-
+	CacheManager cacheManager() {
+		final CaffeineCacheManager manager = new CaffeineCacheManager("calendars", "parsedCal", "transformed");
 		manager.setCaffeine(Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(2)).maximumSize(1000));
-
 		return manager;
 	}
 

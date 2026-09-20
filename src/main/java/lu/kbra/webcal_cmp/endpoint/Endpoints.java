@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import lu.kbra.webcal_cmp.service.CalendarCache;
 import lu.kbra.webcal_cmp.service.CheckCalendarService;
 import lu.kbra.webcal_cmp.service.IcsParser;
 import net.fortuna.ical4j.model.Calendar;
@@ -24,7 +23,6 @@ import net.fortuna.ical4j.model.Calendar;
 public class Endpoints {
 
 	private final CheckCalendarService checkCalendarService;
-	private final CalendarCache calendarCache;
 	private final IcsParser parser;
 
 	@Value("${calendar.key}")
@@ -40,7 +38,7 @@ public class Endpoints {
 		if (!Objects.equals(this.key, key)) {
 			return ResponseEntity.badRequest().build();
 		}
-		this.checkCalendarService.checkCalendar(false);
+		this.checkCalendarService.checkCalendar(true, false);
 		return ResponseEntity.ok().build();
 	}
 
@@ -51,9 +49,9 @@ public class Endpoints {
 		}
 
 		final Calendar cal = this.parser.getCalendar();
-		checkCalendarService.storeTransformed(cal);
+		final String transformed = checkCalendarService.storeTransformed(cal);
 
-		return ResponseEntity.ok().contentType(MediaType.parseMediaType("text/calendar")).body(this.calendarCache.getTransformed());
+		return ResponseEntity.ok().contentType(MediaType.parseMediaType("text/calendar")).body(transformed);
 	}
 
 }
