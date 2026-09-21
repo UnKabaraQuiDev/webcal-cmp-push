@@ -132,7 +132,7 @@ public class CheckCalendarService {
 		this.previousFail = false;
 	}
 
-	@Cacheable("transformed")
+	@Cacheable(value = "transformed", key = "'abc'")
 	public String storeTransformed(final Calendar cal) throws ValidationException, IOException, Exception {
 		this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(cal)));
 		return cache.getTransformed();
