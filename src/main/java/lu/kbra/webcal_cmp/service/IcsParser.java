@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,7 +14,9 @@ import java.time.ZonedDateTime;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -28,9 +31,13 @@ import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.data.ParserException;
 import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.Component;
+import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.component.VEvent;
+import net.fortuna.ical4j.model.property.DtEnd;
+import net.fortuna.ical4j.model.property.DtStart;
 import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Summary;
+import net.fortuna.ical4j.model.property.Trigger;
 import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.validate.ValidationException;
 
@@ -121,31 +128,93 @@ public class IcsParser {
 	}
 
 	public Calendar fixCal(final Calendar calendar) throws Exception {
-		for (final Component component : calendar.getComponents(Component.VEVENT)) {
-			final VEvent event = (VEvent) component;
+		final List<VEvent> events = calendar.getComponents(Component.VEVENT)
+				.stream()
+				.map(component -> (VEvent) component)
+				.collect(Collectors.toList());
+
+		for (final VEvent event : events) {
+			event.getAlarms().clear();
 
 			String summary = event.getSummary().map(Summary::getValue).orElse("");
 
-			final String[] split = summary.split(";\s+");
+			final String[] split = summary.split(";\\s+");
+
 			final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
 				final String[] parts = s.split("/");
 				return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
 			}).orElse(-1);
+
 			if (index >= 0 && index < split.length) {
 				summary = split[index];
 				summary += " [";
-				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", ")); // classes
+				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", "));
 				summary += "] (";
-				summary += split[split.length - 1].trim().toUpperCase(); // type
+				summary += split[split.length - 1].trim().toUpperCase();
 				summary += ")";
 			}
 
 			event.add(new Summary(summary));
 		}
 
+		// Group events by their calendar date
+		final Map<LocalDate, List<VEvent>> eventsByDay = events.stream()
+				.collect(Collectors.groupingBy(event -> event.getDateTimeStart()
+						.map(dt -> this.toInstant(dt.getDate()))
+						.orElseThrow()
+						.atZone(ZoneId.systemDefault())
+						.toLocalDate()));
+
+		for (final List<VEvent> dayEvents : eventsByDay.values()) {
+			dayEvents.sort(Comparator.comparing(event -> event.getDateTimeStart().map(dt -> this.toInstant(dt.getDate())).orElseThrow()));
+
+			// Ignore "COURS SUSPENDUS" at the beginning of the day
+			int first = 0;
+			while (first < dayEvents.size() && isCancelled(dayEvents.get(first))) {
+				first++;
+			}
+
+			// Ignore "COURS SUSPENDUS" at the end of the day
+			int last = dayEvents.size() - 1;
+			while (last >= first && isCancelled(dayEvents.get(last))) {
+				last--;
+			}
+
+			// No actual classes on this day
+			if (first > last) {
+				continue;
+			}
+
+			final VEvent firstEvent = dayEvents.get(first);
+			final VEvent lastEvent = dayEvents.get(last);
+
+			final Instant start = firstEvent.getDateTimeStart().map(dt -> this.toInstant(dt.getDate())).orElseThrow();
+			final Instant end = lastEvent.getDateTimeEnd().map(dt -> this.toInstant(dt.getDate())).orElseThrow();
+
+			// One timed event covering the school day
+			final VEvent dayEvent = new VEvent();
+			dayEvent.add(new DtStart<>(start));
+			dayEvent.add(new DtEnd<>(end));
+			dayEvent.add(new Summary("COURS"));
+
+			final VAlarm alarm = new VAlarm();
+			alarm.add(new Trigger(Duration.ofMinutes(-30)));
+			dayEvent.add(alarm);
+
+			calendar.add(dayEvent);
+		}
+
 		calendar.validate(true);
 
 		return calendar;
+	}
+
+	private boolean isCancelled(final VEvent event) {
+		return event.getSummary()
+				.map(Summary::getValue)
+				.map(String::trim)
+				.map(summary -> summary.equalsIgnoreCase("SUSPENDU"))
+				.orElse(false);
 	}
 
 	public String calToString(final Calendar cal) throws ValidationException, IOException {
