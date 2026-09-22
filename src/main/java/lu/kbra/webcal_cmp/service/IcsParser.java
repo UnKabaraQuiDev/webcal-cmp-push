@@ -100,25 +100,11 @@ public class IcsParser {
 			final String uid = event.getUid().map(Uid::getValue).orElseThrow();
 
 			String summary = event.getSummary().map(Summary::getValue).orElse("");
-
-			final String[] split = summary.split(";\s+");
-			final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
-				final String[] parts = s.split("/");
-				return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
-			}).orElse(-1);
-			if (index >= 0 && index < split.length) {
-				summary = split[index];
-				summary += " [";
-				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", ")); // classes
-				summary += "] (";
-				summary += split[split.length - 1].trim().toUpperCase(); // type
-				summary += ")";
-			}
+			summary = this.fixSummary(summary);
 
 			final String location = event.getLocation().map(Location::getValue).orElse("");
 
 			final Instant start = event.getDateTimeStart().map(dt -> this.toInstant(dt.getDate())).orElseThrow();
-
 			final Instant end = event.getDateTimeEnd().map(dt -> this.toInstant(dt.getDate())).orElse(null);
 
 			events.add(new CalendarEvent(uid, summary, start, end, location));
@@ -136,25 +122,14 @@ public class IcsParser {
 		for (final VEvent event : events) {
 			event.getAlarms().clear();
 
-			String summary = event.getSummary().map(Summary::getValue).orElse("");
-
-			final String[] split = summary.split(";\\s+");
-
-			final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
-				final String[] parts = s.split("/");
-				return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
-			}).orElse(-1);
-
-			if (index >= 0 && index < split.length) {
-				summary = split[index];
-				summary += " [";
-				summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", "));
-				summary += "] (";
-				summary += split[split.length - 1].trim().toUpperCase();
-				summary += ")";
+			if (event.getSummary().isEmpty()) {
+				continue;
 			}
 
-			event.add(new Summary(summary));
+			String summary = event.getSummary().get().getValue();
+			summary = this.fixSummary(summary);
+
+			event.getSummary().get().setValue(summary);
 		}
 
 		// Group events by their calendar date
@@ -170,13 +145,13 @@ public class IcsParser {
 
 			// Ignore "COURS SUSPENDUS" at the beginning of the day
 			int first = 0;
-			while (first < dayEvents.size() && isCancelled(dayEvents.get(first))) {
+			while (first < dayEvents.size() && this.isCancelled(dayEvents.get(first))) {
 				first++;
 			}
 
 			// Ignore "COURS SUSPENDUS" at the end of the day
 			int last = dayEvents.size() - 1;
-			while (last >= first && isCancelled(dayEvents.get(last))) {
+			while (last >= first && this.isCancelled(dayEvents.get(last))) {
 				last--;
 			}
 
@@ -209,11 +184,31 @@ public class IcsParser {
 		return calendar;
 	}
 
+	private String fixSummary(String summary) {
+		final String[] split = summary.split(";\\s+");
+
+		final int index = Arrays.stream(split).filter(s -> s.contains(this.className)).findFirst().map(s -> {
+			final String[] parts = s.split("/");
+			return IntStream.range(0, parts.length).filter(i -> parts[i].contains(this.className)).findFirst().orElse(-1);
+		}).orElse(-1);
+
+		if (index >= 0 && index < split.length && split.length >= 2) {
+			summary = split[index];
+			summary += " [";
+			summary += Arrays.stream(split[split.length - 2].split("/")).map(String::trim).collect(Collectors.joining(", "));
+			summary += "] (";
+			summary += split[split.length - 1].trim().toUpperCase();
+			summary += ")";
+		}
+
+		return summary;
+	}
+
 	private boolean isCancelled(final VEvent event) {
 		return event.getSummary()
 				.map(Summary::getValue)
 				.map(String::trim)
-				.map(summary -> summary.equalsIgnoreCase("SUSPENDU"))
+				.map(summary -> summary.toUpperCase().contains("SUSPENDU"))
 				.orElse(false);
 	}
 
