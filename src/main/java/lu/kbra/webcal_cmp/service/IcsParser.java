@@ -45,6 +45,8 @@ import net.fortuna.ical4j.validate.ValidationException;
 @RequiredArgsConstructor
 public class IcsParser {
 
+	private static final String GROUP_EVENT_NAME = "COURS";
+
 	private static final ZoneId ZONE = ZoneId.of("Europe/Luxembourg");
 
 	private final FetchService fetchService;
@@ -97,7 +99,7 @@ public class IcsParser {
 		for (final Component component : calendar.getComponents(Component.VEVENT)) {
 			final VEvent event = (VEvent) component;
 
-			if (event.getUid().isEmpty()) {
+			if (event.getUid().isEmpty() || event.getName().equals(GROUP_EVENT_NAME)) {
 				continue;
 			}
 
@@ -126,7 +128,7 @@ public class IcsParser {
 		for (final VEvent event : events) {
 			event.getAlarms().clear();
 
-			if (event.getSummary().isEmpty()) {
+			if (event.getSummary().isEmpty() || event.getUid().isEmpty() || event.getName().equals(GROUP_EVENT_NAME)) {
 				continue;
 			}
 
@@ -138,6 +140,7 @@ public class IcsParser {
 
 		// Group events by their calendar date
 		final Map<LocalDate, List<VEvent>> eventsByDay = events.stream()
+				.filter(e -> !(e.getUid().isEmpty() || e.getName().equals(GROUP_EVENT_NAME)))
 				.collect(Collectors.groupingBy(event -> event.getDateTimeStart()
 						.map(dt -> this.toInstant(dt.getDate()))
 						.orElseThrow()
@@ -174,7 +177,7 @@ public class IcsParser {
 			final VEvent dayEvent = new VEvent();
 			dayEvent.add(new DtStart<>(start));
 			dayEvent.add(new DtEnd<>(end));
-			dayEvent.add(new Summary("COURS"));
+			dayEvent.add(new Summary(GROUP_EVENT_NAME));
 
 			final VAlarm alarm = new VAlarm();
 			alarm.add(new Trigger(Duration.ofMinutes(-30)));
