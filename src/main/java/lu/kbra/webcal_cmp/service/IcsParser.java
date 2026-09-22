@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -33,6 +35,7 @@ import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.component.VEvent;
+import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.DtEnd;
 import net.fortuna.ical4j.model.property.DtStart;
 import net.fortuna.ical4j.model.property.Location;
@@ -99,7 +102,7 @@ public class IcsParser {
 		for (final Component component : calendar.getComponents(Component.VEVENT)) {
 			final VEvent event = (VEvent) component;
 
-			if (event.getUid().isEmpty() || event.getName().equals(GROUP_EVENT_NAME)) {
+			if (event.getUid().isEmpty() || IcsParser.GROUP_EVENT_NAME.equals(event.getName())) {
 				continue;
 			}
 
@@ -128,11 +131,12 @@ public class IcsParser {
 		for (final VEvent event : events) {
 			event.getAlarms().clear();
 
-			if (event.getSummary().isEmpty() || event.getUid().isEmpty() || event.getName().equals(GROUP_EVENT_NAME)) {
+			if (event.getSummary().isEmpty() || event.getUid().isEmpty() || IcsParser.GROUP_EVENT_NAME.equals(event.getName())) {
 				continue;
 			}
 
 			String summary = event.getSummary().get().getValue();
+			event.add(new Description(summary));
 			summary = this.fixSummary(summary);
 
 			event.getSummary().get().setValue(summary);
@@ -140,7 +144,7 @@ public class IcsParser {
 
 		// Group events by their calendar date
 		final Map<LocalDate, List<VEvent>> eventsByDay = events.stream()
-				.filter(e -> !(e.getUid().isEmpty() || e.getName().equals(GROUP_EVENT_NAME)))
+				.filter(e -> !(e.getUid().isEmpty() || IcsParser.GROUP_EVENT_NAME.equals(e.getName())))
 				.collect(Collectors.groupingBy(event -> event.getDateTimeStart()
 						.map(dt -> this.toInstant(dt.getDate()))
 						.orElseThrow()
@@ -152,13 +156,13 @@ public class IcsParser {
 
 			// Ignore "COURS SUSPENDUS" at the beginning of the day
 			int first = 0;
-			while (first < dayEvents.size() && this.isCancelled(dayEvents.get(first))) {
+			while (first < dayEvents.size() && (this.isCancelled(dayEvents.get(first)) || this.isNotConcerned(dayEvents.get(first)))) {
 				first++;
 			}
 
 			// Ignore "COURS SUSPENDUS" at the end of the day
 			int last = dayEvents.size() - 1;
-			while (last >= first && this.isCancelled(dayEvents.get(last))) {
+			while (last >= first && (this.isCancelled(dayEvents.get(last)) || this.isNotConcerned(dayEvents.get(last)))) {
 				last--;
 			}
 
@@ -177,13 +181,23 @@ public class IcsParser {
 			final VEvent dayEvent = new VEvent();
 			dayEvent.add(new DtStart<>(start));
 			dayEvent.add(new DtEnd<>(end));
-			dayEvent.add(new Summary(GROUP_EVENT_NAME));
+			dayEvent.add(new Summary(IcsParser.GROUP_EVENT_NAME));
+			final Uid uid = new Uid(this.generateUid(dayEvent));
+			dayEvent.add(uid);
 
 			final VAlarm alarm = new VAlarm();
 			alarm.add(new Trigger(Duration.ofMinutes(-30)));
 			dayEvent.add(alarm);
 
-			calendar.add(dayEvent);
+			calendar.getComponents(Component.VEVENT)
+					.stream()
+					.map(component -> (VEvent) component)
+					.filter(event -> event.getUid().map(Uid::getValue).map(t -> t.equals(uid.getValue())).orElse(false))
+					.findFirst()
+					.ifPresentOrElse(existing -> {
+						calendar.remove(existing);
+						calendar.add(dayEvent);
+					}, () -> calendar.add(dayEvent));
 		}
 
 		calendar.validate(true);
@@ -211,11 +225,30 @@ public class IcsParser {
 		return summary;
 	}
 
+	private String generateUid(final VEvent event) {
+		final LocalDate startDate = event.getDateTimeStart()
+				.map(dt -> this.toInstant(dt.getDate()))
+				.map(instant -> instant.atZone(ZoneId.systemDefault()).toLocalDate())
+				.orElseThrow();
+
+		final String input = this.className + "|" + startDate;
+
+		return UUID.nameUUIDFromBytes(input.getBytes(StandardCharsets.UTF_8)).toString();
+	}
+
 	private boolean isCancelled(final VEvent event) {
 		return event.getSummary()
 				.map(Summary::getValue)
 				.map(String::trim)
 				.map(summary -> summary.toUpperCase().contains("SUSPENDU"))
+				.orElse(false);
+	}
+
+	private boolean isNotConcerned(final VEvent event) {
+		return event.getSummary()
+				.map(Summary::getValue)
+				.map(String::trim)
+				.map(summary -> !summary.toUpperCase().contains(this.className.toUpperCase()))
 				.orElse(false);
 	}
 
