@@ -97,6 +97,10 @@ public class IcsParser {
 		for (final Component component : calendar.getComponents(Component.VEVENT)) {
 			final VEvent event = (VEvent) component;
 
+			if (event.getUid().isEmpty()) {
+				continue;
+			}
+
 			final String uid = event.getUid().map(Uid::getValue).orElseThrow();
 
 			String summary = event.getSummary().map(Summary::getValue).orElse("");
