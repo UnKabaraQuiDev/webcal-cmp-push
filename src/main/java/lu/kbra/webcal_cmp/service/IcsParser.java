@@ -109,6 +109,7 @@ public class IcsParser {
 			final String uid = event.getUid().map(Uid::getValue).orElseThrow();
 
 			String summary = event.getSummary().map(Summary::getValue).orElse("");
+			this.fixDescription(event, summary);
 			summary = this.fixSummary(summary);
 
 			final String location = event.getLocation().map(Location::getValue).orElse("");
@@ -120,6 +121,17 @@ public class IcsParser {
 		}
 
 		return events;
+	}
+
+	private void fixDescription(final VEvent event, final String summary) {
+		if (event.getDescription().isPresent()) {
+			if (event.getDescription().get().getValue().contains("\n--")) {
+				return;
+			}
+			event.getDescription().get().setValue(event.getDescription().get().getValue() + "\n\n-----\n" + summary);
+		} else {
+			event.add(new Description(summary));
+		}
 	}
 
 	public Calendar fixCal(final Calendar calendar) throws Exception {
@@ -136,7 +148,7 @@ public class IcsParser {
 			}
 
 			String summary = event.getSummary().get().getValue();
-			event.add(new Description(summary));
+			this.fixDescription(event, summary);
 			summary = this.fixSummary(summary);
 
 			event.getSummary().get().setValue(summary);
