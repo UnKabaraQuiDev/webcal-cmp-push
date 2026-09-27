@@ -92,7 +92,9 @@ public class CheckCalendarService {
 					.filter(e -> e.summary().toLowerCase().contains("tp") || e.summary().toLowerCase().contains("labo"))
 					.map(c -> new CalendarEventWarning(c, WarningType.TP))
 					.forEach(changes.warning()::add);
-			log.info("Found cancelled/tps: {}", changes.warning());
+			if (!changes.warning().isEmpty()) {
+				CheckCalendarService.log.info("Found cancelled/tps: {}", changes.warning());
+			}
 		}
 
 		if (changes.hasChanges()) {
@@ -135,7 +137,7 @@ public class CheckCalendarService {
 	@Cacheable(value = "transformed", key = "'abc'")
 	public String storeTransformed(final Calendar cal) throws ValidationException, IOException, Exception {
 		this.cache.setTransformed(this.parser.calToString(this.parser.fixCal(cal)));
-		return cache.getTransformed();
+		return this.cache.getTransformed();
 	}
 
 	private boolean isConsideringNextDay() {
