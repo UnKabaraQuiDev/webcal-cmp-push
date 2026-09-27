@@ -89,7 +89,7 @@ public class CheckCalendarService {
 					.map(c -> new CalendarEventWarning(c, WarningType.CANCELLED))
 					.forEach(changes.warning()::add);
 			todayEvents.stream()
-					.filter(e -> e.summary().toLowerCase().contains("tp"))
+					.filter(e -> e.summary().toLowerCase().contains("tp") || e.summary().toLowerCase().contains("labo"))
 					.map(c -> new CalendarEventWarning(c, WarningType.TP))
 					.forEach(changes.warning()::add);
 			log.info("Found cancelled/tps: {}", changes.warning());
