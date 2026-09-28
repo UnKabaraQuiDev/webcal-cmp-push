@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import lu.kbra.pclib.PCUtils;
@@ -40,16 +41,20 @@ public class PushNotificationService {
 	public void sendCalendarChanged(final CalendarChanges changes) {
 		final String body = this.buildMessage(changes);
 
-		this.restClient.post()
-				.uri("/" + this.topic)
-				.header("X-Title", "Calendar changed")
-				.header("X-Priority", "high")
-				.header("X-Tags", "calendar")
-				.header("X-Markdown", "true")
-				.header("Content-Type", "text/plain; charset=utf-8")
-				.body(body)
-				.retrieve()
-				.toBodilessEntity();
+		try {
+			this.restClient.post()
+					.uri("/" + this.topic)
+					.header("X-Title", "Calendar changed")
+					.header("X-Priority", "high")
+					.header("X-Tags", "calendar")
+					.header("X-Markdown", "true")
+					.header("Content-Type", "text/plain; charset=utf-8")
+					.body(body)
+					.retrieve()
+					.toBodilessEntity();
+		} catch (HttpClientErrorException v) {
+			v.printStackTrace();
+		}
 	}
 
 	private String buildMessage(final CalendarChanges changes) {
@@ -166,29 +171,38 @@ public class PushNotificationService {
 	}
 
 	public void sendFail(final Exception e) {
-		this.restClient.post()
-				.uri("/" + this.topic)
-				.header("X-Title", "Error occured")
-				.header("X-Priority", "low")
-				.header("X-Tags", "calendar")
-				.header("X-Markdown", "true")
-				.header("Content-Type", "text/plain; charset=utf-8")
-				.body("Error occured:\n" + PCUtils.toString(e))
-				.retrieve()
-				.toBodilessEntity();
+		try {
+			this.restClient.post()
+					.uri("/" + this.topic)
+					.header("X-Title", "Error occured")
+					.header("X-Priority", "low")
+					.header("X-Tags", "calendar")
+					.header("X-Markdown", "true")
+					.header("Content-Type", "text/plain; charset=utf-8")
+					.body("Error occured:\n" + PCUtils.toString(e))
+					.retrieve()
+					.toBodilessEntity();
+		} catch (HttpClientErrorException v) {
+			v.addSuppressed(e);
+			v.printStackTrace();
+		}
 	}
 
 	public void sendOk() {
-		this.restClient.post()
-				.uri("/" + this.topic)
-				.header("X-Title", "Error occured")
-				.header("X-Priority", "low")
-				.header("X-Tags", "calendar")
-				.header("X-Markdown", "true")
-				.header("Content-Type", "text/plain; charset=utf-8")
-				.body("Back online.")
-				.retrieve()
-				.toBodilessEntity();
+		try {
+			this.restClient.post()
+					.uri("/" + this.topic)
+					.header("X-Title", "Error occured")
+					.header("X-Priority", "low")
+					.header("X-Tags", "calendar")
+					.header("X-Markdown", "true")
+					.header("Content-Type", "text/plain; charset=utf-8")
+					.body("Back online.")
+					.retrieve()
+					.toBodilessEntity();
+		} catch (HttpClientErrorException v) {
+			v.printStackTrace();
+		}
 	}
 
 }
