@@ -19,9 +19,6 @@ public class CalendarScheduler {
 
 	@Scheduled(cron = "0 5 18 * * *")
 	public void nextDay() {
-		// populates the cache for the next day
-		this.checkCalendarService.checkCalendar(true, true);
-		// checks special events
 		this.checkCalendarService.checkCalendar(true, true);
 	}
 
