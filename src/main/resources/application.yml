@@ -18,7 +18,7 @@ calendar:
     username: ""
     password: ""
 
-nfty:
+ntfy:
   topic: ""
 
 logging:
