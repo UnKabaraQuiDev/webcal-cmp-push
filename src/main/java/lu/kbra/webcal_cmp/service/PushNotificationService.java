@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import lu.kbra.pclib.PCUtils;
 import lu.kbra.webcal_cmp.data.CalendarChanges;
 import lu.kbra.webcal_cmp.data.CalendarEvent;
@@ -23,6 +25,7 @@ import lu.kbra.webcal_cmp.data.CalendarEventChange;
 import lu.kbra.webcal_cmp.data.CalendarEventWarning;
 import lu.kbra.webcal_cmp.data.EventData;
 
+@Slf4j
 @Service
 public class PushNotificationService {
 
@@ -36,6 +39,11 @@ public class PushNotificationService {
 	public PushNotificationService(final ZoneId zone, final RestClient.Builder restClientBuilder) {
 		this.zone = zone;
 		this.restClient = restClientBuilder.baseUrl("https://ntfy.sh").build();
+	}
+
+	@PostConstruct
+	public void init() {
+		log.info("Using topic: " + topic);
 	}
 
 	public void sendCalendarChanged(final CalendarChanges changes) {
