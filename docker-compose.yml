@@ -16,4 +16,6 @@ services:
       CALENDAR_PROXY_PASSWORD: ${EXT_PASSWORD}
       CALENDAR_CLASS: ${CALENDAR_CLASS}
       CALENDAR_KEY: ${CALENDAR_KEY}
+      TZ: Europe/Luxembourg
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Europe/Luxembourg
     restart: unless-stopped
